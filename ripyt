@@ -1,0 +1,252 @@
+#!/bin/bash
+# Written by: Jason Meredith
+# Date: 7/13/2012
+
+######## CHECK DEPS ##########
+for DEP in pv curl getopt youtube-dl 
+do
+  if [ -z $(which $DEP) ] ; then
+    printf "\x1b[38;5;1mERROR:\x1b[m $DEP must be installed\n"  
+    exit 0
+  fi
+done
+####### SET VARIABLES ########
+TEMPDIR=$(mktemp -d)
+verifymatches="0"
+skipyes="0"
+slink=""
+sname=""
+SHOWHELP="0"
+DOINTERACTIVE="0"
+DOYES="0"
+HASSEARCH="0"
+HASFILE="0"
+
+helpmsg="""
+RIPYT(1) (written by Jason Meredith)\n\n
+ABOUT:\n
+This program is a wrapper for youtube-dl\n
+\n
+\t-i,--interactive\n
+\t\t Interactively check which search result\n
+\t\t to use. if not envoked it will default to\n
+\t\t the first result.\n
+\n
+\t-s,--search \"some string\"\n
+\t\t will search for the string you enter.\n
+\n
+\t-f,--file \"path/to/file\"\n
+\t\t this enabled a batch mode. it will search\n
+\t\t for each line in the file.\n
+\n
+\t-y,--yes\n
+\t\t will automatically assume yes for any\n
+\t\t confirmation\n
+\n
+\t-h,--help\n
+\t\t view this help page.\n
+"""
+
+###### NOT ENOUGH ARGS #######
+
+if [ $# -lt 2 ] ; then
+  echo -e $helpmsg
+fi
+
+########## FUNCTIONS #########
+
+function returnlink() {
+  song=$(echo $* )
+  searchsong=$(echo $song | sed -e 's/[^a-zA-Z0-9 ]//g' -e 's/\ /\+/g')
+  tries="0"
+  while [ $tries -lt 3 ] ; do
+    searchurl=$(echo "http://www.youtube.com/results?search_query="$searchsong 2> /dev/null)
+    curl -s -A "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_6_8) AppleWebKit/534.30 (KHTML, like Gecko) Chrome/12.0.742.112 Safari/534.30" $searchurl > ${TEMPDIR}/search_result.tmp 2> /dev/null
+    srlength=$(wc -l ${TEMPDIR}/search_result.tmp | awk '{print $1 }' )
+    frlength=$(grep -n result-item-main-content ${TEMPDIR}/search_result.tmp | head -n 1 | cut -d \: -f 1 )
+    matches=$(tail -n $(( $srlength - $frlength )) ${TEMPDIR}/search_result.tmp | sed 's/^[\S\s\t\ ]*//g' | grep -e '^[ ]*<h3[ ]*class=\"[-a-zA-Z0-9]*\"[ ]*><a' | sed -nE 's/(^.*title="([^"]*)".*href="([^"]*)".*)/\3\|\2/p' | sed -e 's/[\ ]/_/g' -e 's/[\!]//g' | grep -v results_main )
+    totalmatches=$(echo $matches | wc -w | awk '{print $1}')
+    if [ $totalmatches -gt 0 ] ; then
+    break
+    fi
+    tries=$(( $tries + 1 ))
+    sleep 1
+  done
+  if [ $tries -gt 2 ] ; then
+    printf "\x1b[38;5;1mERROR: Could not find song: $song .... SKIPPING\x1b[m\n"
+  else
+    if [ $verifymatches -eq "0" ] ; then
+      link=$(echo $matches | head -n 1 | cut -d \| -f 1)
+      sname=$(echo $matches | head -n 1 | cut -d \| -f 2 | sed -e 's/_/\ /g' -e 's/\/wa.*.$//g' )
+    else
+      count="1"
+      printf "\x1b[38;5;6mSearch results generated for: $(echo $song )\x1b[m\n"
+      for match in $(echo $matches) ; do
+        echo "$count) $(echo $match | cut -d ' ' -f $count | cut -d \| -f 2 | sed -e 's/_/\ /g' -e 's/^[\ ]*//g' -e 's/\ \ /\ /g' ) "  >&2
+        count=$(expr $count + 1 )
+      done
+      validreply="0"
+      while [ "$validreply" -ne "1" ] ; do
+        read -e -p "Enter choice number: " prompt
+        if [ $prompt -le $totalmatches ] ; then
+          link="$(echo $matches | cut -d ' ' -f $prompt | cut -d \| -f 1)"
+          sname="$(echo $matches | cut -d ' ' -f $prompt | cut -d \| -f 2| sed 's/_/\ /g')"
+          validreply="1"
+        else
+          printf "\x1b[38;5;1mThat is not a valid choice\x1b[m\n"
+        fi
+      done
+    fi
+  fi
+  rm ${TEMPDIR}/search_result.tmp
+  slink=$(echo 'http://www.youtube.com'${link})
+}
+
+function ripsong {
+  youtube-dl -q --output="%(title)s.%(ext)s" --extract-audio --audio-format=mp3 $1 | pv -t
+  printf "\x1b[38;5;2mDone\x1b[m\n"
+}
+
+
+function ripsonglist {
+  youtube-dl -q --output="%(title)s.%(ext)s" --extract-audio --audio-format=mp3 --batch-file="${TEMPDIR}/urllist.tmp" | pv -t
+  rm ${TEMPDIR}/urllist.tmp ${TEMPDIR}/namelist.tmp
+  printf "\x1b[38;5;2mDone\x1b[m"
+}
+
+function confirm() {
+  validreply="0"
+  while [ "$validreply" -ne "1" ] ; do
+    read -p "[(Y)es/(N)o]: " prompt
+    if [[ $prompt =~ ^([yY][eE][sS]|[yY])$ ]] ; then
+      validreply="1"
+    elif [[ $prompt =~ ^([nN][oO]|[nN])$ ]] ;then
+      exit 0
+    else
+      exit 1
+    fi
+done
+}
+
+TEMP=`getopt -o hiys:f: --long help,interactive,yes,search:,file: \
+     -n $0 -- "$@"`
+
+if [ $? != 0 ] ; then echo "Terminating..." >&2 ; exit 1 ; fi
+
+# Note the quotes around `$TEMP': they are essential!
+eval set -- "$TEMP"
+
+while true ; do
+    case "$1" in
+        -h|--help)
+            SHOWHELP="1"
+            shift
+            ;;
+        -i|--interactive)
+            DOINTERACTIVE="1"
+            shift
+            ;;
+        -y|--yes)
+            DOYESP="1"
+            shift
+            ;;
+        -s|--search)
+            HASSEARCH="1"
+            if [ "$2" = "" ] ; then
+              echo "ERROR: no search string entered"
+              exit 1
+            fi
+            SEARCHSTRING="$2"
+            shift 2
+            ;;
+        -f|--file)
+            HASFILEP="1"
+            if [ ! -f $2 ] ; then
+              printf "\x1b[38;5;1mERROR: File \"$2\" doesnt exist\x1b[m\n"
+              exit 1
+            fi
+            THEFILE="$2"
+            
+            shift 2
+            ;;
+        --) shift ; break ;;
+        *) printf "\x1b[38;5;1mInternal error!\x1b[m\n" ; exit 1 ;;
+    esac
+done
+count="0"
+for arg
+do
+  bargs[$count]="$arg"
+  count="$(( $count + 1 ))"
+done
+if [ "${#bargs}" -ne "0" ] ; then
+ printf "\x1b[38;5;1mERROR:\x1b[m The following arguments are invalid: "
+  for var in "${bargs[@]}"
+  do
+    printf " \"${var}\" "
+  done
+  echo 
+  exit 1
+fi
+
+############ MAIN ############
+
+if [ $SHOWHELP -eq 1 ] ; then
+  echo -e $helpmsg
+  exit 0
+fi
+
+if [ $DOINTERACTIVE -eq 1 ] ; then
+  verifymatches="1"
+fi
+
+if [ $DOYES -eq 1 ] ; then
+  skipyes="1"
+fi
+
+if [ $HASFILE -eq 1 ] && [ $HASSEARCH -eq 1 ] ; then
+  printf "\x1b[38;5;1mERROR:\x1b[m you may not select a search string and a file at the same time\n"
+  exit 1
+fi
+
+if [ $HASFILE -eq 1 ] ; then
+  for line in `cat $THEFILE | sed 's/\ /_/g'` ; do 
+    returnlink  $(echo $line | sed 's/_/\ /g')
+    echo "$slink" >> ${TEMPDIR}/urllist.tmp
+    echo "$sname" >> ${TEMPDIR}/namelist.tmp
+    if [ "$verifymatches" -ne "0" ] ; then
+      echo ""
+      echo ""
+    fi
+  done
+  printf "\x1b[38;5;2mGoing to download the following :\x1b[m\n"
+  echo "---------------------------------"
+  cat ${TEMPDIR}/namelist.tmp
+  echo "---------------------------------"
+  echo ""
+  if  [  "$skipyes" -eq "0" ] ; then
+    printf "\x1b[38;5;2mWould you like to proceed? \x1b[m" 
+    confirm
+  fi
+  ripsonglist
+fi
+
+if [ $HASSEARCH -eq 1 ] ; then
+  #generate slink with returnlink function
+  returnlink $SEARCHSTRING
+
+  echo "Downloading and converting song: ${sname}"
+
+  if  [  "$skipyes" -eq "0" ] ; then
+    printf "\x1b[38;5;2mWould you like to proceed? \x1b[m" 
+    confirm
+  fi
+  ripsong $slink
+fi
+########## CLEAN UP ##########
+
+rm -rf $TEMPDIR 2> /dev/null
+
+############ END #############
+
+exit 0
