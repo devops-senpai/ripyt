@@ -1,0 +1,33 @@
+RIPYT
+============================================================
+
+An interactve wrapper for youtube-dl to find music on 
+youtube. You can confirm findings with interactive mode
+and input a txt playlist with one song title per line to
+start a mass download and conversion process. 
+
+HELP
+============================================================
+RIPYT(1) (written by Jason Meredith)
+
+ ABOUT:
+ This program is a wrapper for youtube-dl
+ 
+ 	-i,--interactive
+ 		 Interactively check which search result
+ 		 to use. if not envoked it will default to
+ 		 the first result.
+ 
+ 	-s,--search "some string"
+ 		 will search for the string you enter.
+ 
+ 	-f,--file "path/to/file"
+ 		 this enabled a batch mode. it will search
+ 		 for each line in the file.
+ 
+ 	-y,--yes
+ 		 will automatically assume yes for any
+ 		 confirmation
+ 
+ 	-h,--help
+ 		 view this help page.
