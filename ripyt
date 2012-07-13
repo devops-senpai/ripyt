@@ -51,6 +51,7 @@ This program is a wrapper for youtube-dl\n
 
 if [ $# -lt 2 ] ; then
   echo -e $helpmsg
+  exit 1
 fi
 
 ########## FUNCTIONS #########
