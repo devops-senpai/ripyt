@@ -2,9 +2,11 @@ RIPYT
 ============================================================
 
 An interactve wrapper for youtube-dl to find music on 
-youtube. You can confirm findings with interactive mode
-and input a txt playlist with one song title per line to
-start a mass download and conversion process. 
+youtube. You can input a search string, or input a txt file
+with one song per line which it will iterate through. Once 
+all songs are chosen, it will then begin to download and encode
+each song. You may also automate it to auto-confirm the results.
+
 
 HELP
 ============================================================
