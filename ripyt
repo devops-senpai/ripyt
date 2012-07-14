@@ -161,7 +161,7 @@ while true ; do
             shift 2
             ;;
         -f|--file)
-            HASFILEP="1"
+            HASFILE="1"
             if [ ! -f $2 ] ; then
               printf "\x1b[38;5;1mERROR: File \"$2\" doesnt exist\x1b[m\n"
               exit 1
