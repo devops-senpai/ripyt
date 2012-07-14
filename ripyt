@@ -129,6 +129,8 @@ function confirm() {
 done
 }
 
+####### PARSE OPTIONS ########
+
 TEMP=`getopt -o hiys:f: --long help,interactive,yes,search:,file: \
      -n $0 -- "$@"`
 
