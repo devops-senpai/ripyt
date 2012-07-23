@@ -10,8 +10,24 @@ do
     exit 0
   fi
 done
+###### SET SET TMPDIR ########
+
+if [ -z ${TMPDIR} ] ; then
+  if [ -w /tmp ] ; then
+    TMPDIR="/tmp"
+  elif [ -w ~/ ] ; then
+    TMPDIR="~/.ripyt"
+  fi
+fi
+
+if [ ! -w ${TMPDIR} ] ; then
+  printf "\x1b[38;5;1mERROR:\x1b[m \$TMPDIR $TMPDIR does not have a writable directory set\n"
+  exit 0
+fi
+
+
 ####### SET VARIABLES ########
-TEMPDIR=$(mktemp -dt ripyt)
+TEMPDIR=$(mktemp -d 2>/dev/null || mktemp -dt ripyt 2>/dev/null)
 verifymatches="0"
 skipyes="0"
 slink=""
