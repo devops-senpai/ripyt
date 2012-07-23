@@ -11,7 +11,7 @@ do
   fi
 done
 ####### SET VARIABLES ########
-TEMPDIR=$(mktemp -d)
+TEMPDIR=$(mktemp -dt ripyt)
 verifymatches="0"
 skipyes="0"
 slink=""
