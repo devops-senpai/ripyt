@@ -2,7 +2,20 @@
 # Written by: Jason Meredith
 # Date: 7/13/2012
 
+
 ######## CHECK DEPS ##########
+
+
+if [ -e /usr/bin/sw_vers ]; then
+  if [ ! -d /usr/local/Cellar/gnu-getopt ] ; then
+    printf "\x1b[38;5;1mERROR:\x1b[m gnu-getopt must be installed\n"
+    exit 0
+  fi
+  GETOPT=$(find /usr/local/Cellar/gnu-getopt/ -name 'getopt')
+else
+  GETOPT=$(which getopt)
+fi
+
 for DEP in pv curl getopt youtube-dl 
 do
   if [ -z $(which $DEP) ] ; then
@@ -80,8 +93,8 @@ function returnlink() {
     searchurl=$(echo "http://www.youtube.com/results?search_query="$searchsong 2> /dev/null)
     curl -s -A "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_6_8) AppleWebKit/534.30 (KHTML, like Gecko) Chrome/12.0.742.112 Safari/534.30" $searchurl > ${TEMPDIR}/search_result.tmp 2> /dev/null
     srlength=$(wc -l ${TEMPDIR}/search_result.tmp | awk '{print $1 }' )
-    frlength=$(grep -n result-item-main-content ${TEMPDIR}/search_result.tmp | head -n 1 | cut -d \: -f 1 )
-    matches=$(tail -n $(( $srlength - $frlength )) ${TEMPDIR}/search_result.tmp | sed 's/^[\S\s\t\ ]*//g' | grep -e '^[ ]*<h3[ ]*class=\"[-a-zA-Z0-9]*\"[ ]*><a' | sed -nE 's/(^.*title="([^"]*)".*href="([^"]*)".*)/\3\|\2/p' | sed -e 's/[\ ]/_/g' -e 's/[\!]//g' | grep -v results_main )
+    frlength=$(grep -n yt-lockup2-content ${TEMPDIR}/search_result.tmp | head -n 1 | cut -d \: -f 1 )
+    matches=$(tail -n $(( $srlength - $frlength )) ${TEMPDIR}/search_result.tmp | grep -e '^[ ]*<h3[ ]*class=\"[-a-zA-Z0-9]*\"[ ]*><a' | sed -nE 's/(^.*title="([^"]*)".*href="([^"]*)".*)/\3\|\2/p' | sed -e 's/[\ ]/_/g' -e 's/[\!]//g' | grep -v results_main )
     totalmatches=$(echo $matches | wc -w | awk '{print $1}')
     if [ $totalmatches -gt 0 ] ; then
     break
@@ -147,7 +160,7 @@ done
 
 ####### PARSE OPTIONS ########
 
-TEMP=`getopt -o hiys:f: --long help,interactive,yes,search:,file: \
+TEMP=`$GETOPT -o hiys:f: --long help,interactive,yes,search:,file: \
      -n $0 -- "$@"`
 
 if [ $? != 0 ] ; then echo "Terminating..." >&2 ; exit 1 ; fi
